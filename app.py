@@ -7,6 +7,7 @@ from pathlib import Path
 
 import plotly.graph_objects as go
 import streamlit as st
+from datetime import date
 
 METRICS = ("Accuracy", "Precision", "Recall", "F1")
 COLORS = ("#276174", "#B76931", "#188577", "#7457A8")
@@ -101,6 +102,43 @@ with error_view:
     st.plotly_chart(heatmap, width="stretch", config={"displayModeBar": False})
 
 st.divider()
+# AI attribution: OpenAI ChatGPT generated the historical date picker.
+st.subheader("Historical predictions")
+
+daily = results.get("daily_predictions", {})
+
+if daily:
+    first_day = date.fromisoformat(min(daily))
+    last_day = date.fromisoformat(max(daily))
+
+    selected_day = st.date_input(
+        "Choose a test date",
+        value=last_day,
+        min_value=first_day,
+        max_value=last_day,
+    )
+
+    day = daily.get(selected_day.isoformat())
+
+    if day is None:
+        st.info("No test result is available for this date.")
+    else:
+        st.metric("ERA5 precipitation", f"{day['precipitation_mm']:.2f} mm")
+
+        labels = {0: "Below rain threshold", 1: "Rain"}
+        st.write(f"Actual class: **{labels[day['actual']]}**")
+
+        prediction_rows = [
+            {
+                "Model": model,
+                "Prediction": labels[predicted],
+                "Result": "Correct" if predicted == day["actual"] else "Incorrect",
+            }
+            for model, predicted in day["predicted"].items()
+        ]
+        st.dataframe(prediction_rows, hide_index=True, width="stretch")
+else:
+    st.info("Upload the new results.json from Colab to enable the date picker.")
 st.caption(
     "Model evaluation from Google Colab · "
     "[Weather source: ECMWF ERA5 via Open-Meteo](https://open-meteo.com/en/docs/historical-weather-api)"
